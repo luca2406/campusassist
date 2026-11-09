@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#8A1538">
+  <title>CampusAssist – CityU Multimodal Navigation</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+<a href="#sheet" class="skip-link" data-i18n="skip">Skip to controls</a>
+
+<div id="app" class="app">
+
+  <!-- ===== Status bar: visibility of system status ===== -->
+  <header class="statusbar">
+    <div class="status-loc" id="statusLoc">◉ 3/F</div>
+    <span class="acc-badge" id="accBadge" title="Positioning accuracy">±3 m</span>
+    <button class="lang-btn" id="langBtn" aria-label="Change language / 切換語言">EN</button>
+  </header>
+
+  <!-- ===== MAP VIEW ===== -->
+  <main id="mapView" class="view view--map">
+    <div class="map-wrap">
+      <svg id="map" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid slice"
+           role="group" aria-label="Campus floor plan. Use arrow keys to pan, plus and minus to zoom, Page Up and Page Down to change floor." tabindex="0">
+        <defs>
+          <pattern id="patDiag" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="10" stroke="#000" stroke-opacity=".18" stroke-width="3"/>
+          </pattern>
+          <pattern id="patDots" width="12" height="12" patternUnits="userSpaceOnUse">
+            <circle cx="6" cy="6" r="2" fill="#000" fill-opacity=".22"/>
+          </pattern>
+          <pattern id="patCross" width="12" height="12" patternUnits="userSpaceOnUse">
+            <path d="M0 0L12 12M12 0L0 12" stroke="#000" stroke-opacity=".2" stroke-width="1.5"/>
+          </pattern>
+          <pattern id="patVert" width="10" height="10" patternUnits="userSpaceOnUse">
+            <line x1="5" y1="0" x2="5" y2="10" stroke="#000" stroke-opacity=".2" stroke-width="2"/>
+          </pattern>
+        </defs>
+        <g id="viewport">
+          <g id="layerBase"></g>
+          <g id="layerRoute"></g>
+          <g id="layerPoi"></g>
+          <g id="layerUser"></g>
+        </g>
+      </svg>
+    </div>
+
+    <!-- AR view (camera + arrow overlay) -->
+    <div id="arLayer" class="ar-layer" hidden>
+      <video id="arVideo" playsinline muted></video>
+      <div class="ar-arrow" id="arArrow" aria-hidden="true">⬆</div>
+      <div class="ar-label" id="arLabel"></div>
+    </div>
+
+    <div class="floor-hint" id="floorHint" hidden></div>
+
+    <!-- Map controls: single-pointer alternatives to gestures (WCAG 2.5.1) -->
+    <div class="map-ctrls">
+      <button class="fab" id="zoomIn"  aria-label="Zoom in">+</button>
+      <button class="fab" id="zoomOut" aria-label="Zoom out">−</button>
+      <button class="fab" id="compass" aria-label="Reset map to north"><span id="compassNeedle">➤</span></button>
+      <button class="fab" id="locateBtn" aria-label="Centre map on my location">◎</button>
+    </div>
+
+    <!-- Vertical floor selector -->
+    <div class="floor-sel" id="floorSel" role="radiogroup" aria-label="Floor"></div>
+
+    <!-- Turn-by-turn step card -->
+    <section id="navCard" class="nav-card" hidden aria-label="Current instruction">
+      <div class="nav-arrow" id="navArrow" aria-hidden="true">⬆</div>
+      <div class="nav-body">
+        <div class="nav-dist" id="navDist"></div>
+        <div class="nav-text" id="navText"></div>
+        <div class="nav-next" id="navNext"></div>
+      </div>
+    </section>
+
+    <div id="offBanner" class="off-banner" role="alert" hidden></div>
+
+    <!-- Voice listening overlay -->
+    <div id="listen" class="listen" hidden aria-live="polite">
+      <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+      <div>
+        <strong id="listenTitle">Listening…</strong>
+        <div id="listenText" class="listen-text"></div>
+      </div>
+    </div>
+
+    <!-- Bottom sheet -->
+    <section id="sheet" class="sheet sheet--half" aria-label="Details panel">
+      <button class="sheet-handle" id="sheetHandle" aria-label="Resize panel"><span></span></button>
+      <div id="sheetContent" class="sheet-content"></div>
+    </section>
+  </main>
+
+  <!-- ===== SAVED VIEW ===== -->
+  <section id="savedView" class="view view--page" hidden aria-label="Saved places"></section>
+
+  <!-- ===== PROFILE VIEW ===== -->
+  <section id="profileView" class="view view--page" hidden aria-label="Profile and accessibility settings"></section>
+
+  <!-- ===== Tab bar ===== -->
+  <nav class="tabbar" aria-label="Main">
+    <button class="tab is-active" data-tab="map" aria-current="page"><span aria-hidden="true">🗺</span><span data-i18n="tabMap">Map</span></button>
+    <button class="tab" data-tab="saved"><span aria-hidden="true">★</span><span data-i18n="tabSaved">Saved</span></button>
+    <button class="tab" data-tab="profile"><span aria-hidden="true">👤</span><span data-i18n="tabProfile">Profile</span></button>
+  </nav>
+
+  <!-- ===== Persistent Emergency Assist (bottom edge, long-press) ===== -->
+  <div class="emg-wrap">
+    <button id="emgBtn" class="emg-btn" aria-label="Emergency Assist. Press and hold for 1.5 seconds.">
+      <span class="emg-ring" aria-hidden="true"></span>
+      <span aria-hidden="true">🆘</span>
+      <span data-i18n="emergency">EMERGENCY ASSIST</span>
+    </button>
+  </div>
+
+  <!-- Feedback surfaces -->
+  <div id="hapticViz" class="haptic-viz" aria-hidden="true"></div>
+  <div id="caption" class="caption" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <div id="srPolite" class="sr-only" aria-live="polite"></div>
+  <div id="srAssert" class="sr-only" aria-live="assertive"></div>
+</div>
+
+<dialog id="dialog" aria-label="Dialog"></dialog>
+
+<script src="js/data.js"></script>
+<script src="js/basemap.js"></script>
+<script src="js/feedback.js"></script>
+<script src="js/router.js"></script>
+<script src="js/nlu.js"></script>
+<script src="js/voice.js"></script>
+<script src="js/map.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
